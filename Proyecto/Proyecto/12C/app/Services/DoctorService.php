@@ -48,4 +48,54 @@ class DoctorService
             return $doctor;
         });
     }
+    
+    public function getEspecialidades (Doctor $doctor): Collection
+    {
+        return $doctor->especialidades()->orderBy('nombre')->get();
+    }
+
+    public function addEspecialidades(Doctor $doctor, int $especialidadId):Doctor
+    {
+        return DB :: transaction(function () use ($doctor, $especialidadId) {
+            $doctor->especialidades()->syncWithoutDetaching([$especialidadId]);
+            return $doctor->refresh()->load('especialidades');
+        });
+    }
+
+        public function removeEspecialidad(Doctor $doctor, int $especialidadId):Doctor
+    {
+        return DB :: transaction(function () use ($doctor, $especialidadId) {
+            $doctor->especialidades()->detach($especialidadId);
+            return $doctor->refresh()->load('especialidades');
+        });
+    }
+
+        public function replaceEspecialidades(Doctor $doctor, int ...$especialidadIds):Doctor
+    {
+        return DB :: transaction(function () use ($doctor, $especialidadIds) {
+            $doctor->especialidades()->sync($especialidadIds);
+            return $doctor->refresh()->load('especialidades');
+        });
+    }
+
+    public function changeStatus(Doctor $doctor, string $estado)
+    {
+        $doctor->update(['estado'=>$estado]);
+        return $doctor->refresh();
+
+    }
+
+    public function delete (Doctor $doctor) : bool
+    {
+        return (bool)$doctor->delete();
+    }
+
+    private function resolvePerPage(array $filters): int
+    {
+        $perPage = (int) ($filters['per_page'] ?? 15);
+        if ($perPage <= 0) {
+            $perPage = 15;
+        }
+        return min($perPage, 100);
+    }
 }
