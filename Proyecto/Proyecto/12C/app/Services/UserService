@@ -1,0 +1,46 @@
+<?php
+namespace App\Services;
+
+use App\Models\User;
+use ILluminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
+
+class UserService
+{
+    public function list(array $filters = []): LengthAwarePaginator
+    {
+        $query = User::query()->with(['roles', 'permissions']);
+
+        if (! empty($filters['q'])) {
+            $term = '%'.$filters['q'].'%';
+            $query->where(fn($q) => $q->where('name', 'like', $term)
+                ->orWhere('email', 'like', $term));
+        }
+        if (! empty($filters['role'])) {
+            $role = $filters['role'];
+            $query->whereHas('roles', fn($q) => $q->where('name', $role));
+        }
+
+        return $query->orderBy('name')->paginate($this->resolvePerPage($filters));
+    }
+
+    public function create(array $data): User
+    {
+        return User::create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => $data['password'],
+        ]);
+    }
+
+    public function update(User $user, array $data): User
+    {
+        $payload = ['name' => $data['name'] ?? $user->name, 'email' => $data['email'] ?? $user->email];
+        if(!empty($data['password'])) {
+            $payload['password'] = $data['password'];
+        }
+        $user->update($payload);
+        return $user->refresh()->load(['roles', 'permissions']);
+
+    }
+}

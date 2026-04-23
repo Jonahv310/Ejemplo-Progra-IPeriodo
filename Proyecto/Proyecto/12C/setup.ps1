@@ -1,76 +1,75 @@
 # Laravel Project Setup Script
 # Automatiza: crear .env, generar clave, migraciones
 
-Write-Host "🚀 Iniciando setup del proyecto Laravel..." -ForegroundColor Cyan
+Write-Host "Iniciando setup del proyecto Laravel..." -ForegroundColor Cyan
 
 # 1. Copiar .env.example a .env
 if (Test-Path .env.example) {
     if (-not (Test-Path .env)) {
         Copy-Item .env.example .env
-        Write-Host "✓ Archivo .env creado desde .env.example" -ForegroundColor Green
+        Write-Host "[OK] Archivo .env creado desde .env.example" -ForegroundColor Green
     } else {
-        Write-Host "⚠ El archivo .env ya existe (no se sobrescribió)" -ForegroundColor Yellow
+        Write-Host "[WARN] El archivo .env ya existe (no se sobrescribio)" -ForegroundColor Yellow
     }
 } else {
-    Write-Host "✗ No se encontró .env.example" -ForegroundColor Red
+    Write-Host "[ERROR] No se encontro .env.example" -ForegroundColor Red
     exit 1
 }
 
 # 2. Instalar dependencias Composer (si falta vendor)
 if (-not (Test-Path vendor)) {
-    Write-Host "📦 Instalando dependencias de Composer..." -ForegroundColor Cyan
+    Write-Host "[INFO] Instalando dependencias de Composer..." -ForegroundColor Cyan
     composer install --no-interaction --prefer-dist
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "✗ Error al instalar Composer" -ForegroundColor Red
+        Write-Host "[ERROR] Error al instalar Composer" -ForegroundColor Red
         exit 1
     }
-    Write-Host "✓ Dependencias instaladas" -ForegroundColor Green
+    Write-Host "[OK] Dependencias instaladas" -ForegroundColor Green
 } else {
-    Write-Host "✓ Vendor ya existe (saltando composer install)" -ForegroundColor Green
+    Write-Host "[OK] Vendor ya existe (saltando composer install)" -ForegroundColor Green
 }
 
 # 3. Generar clave de aplicación
-Write-Host "🔑 Generando APP_KEY..." -ForegroundColor Cyan
+Write-Host "[INFO] Generando APP_KEY..." -ForegroundColor Cyan
 php artisan key:generate --no-interaction
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "✗ Error al generar key" -ForegroundColor Red
+    Write-Host "[ERROR] Error al generar key" -ForegroundColor Red
     exit 1
 }
-Write-Host "✓ APP_KEY generada" -ForegroundColor Green
+Write-Host "[OK] APP_KEY generada" -ForegroundColor Green
 
 # 4. Crear base de datos si no existe
-Write-Host "🗄️ Preparando base de datos..." -ForegroundColor Cyan
-$script = @'
-<?php
-try {
-    $pdo = new PDO('mysql:host=127.0.0.1;port=3306', 'root', 'root');
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->exec('CREATE DATABASE IF NOT EXISTS `12c` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
-    echo "OK";
-} catch (Throwable $e) {
-    echo "FAIL:" . $e->getMessage();
-}
-'@
+Write-Host "[INFO] Preparando migraciones..." -ForegroundColor Cyan
 
-Set-Content -Path storage\app\create_db.php -Value $script
-$dbResult = php storage\app\create_db.php
-Remove-Item storage\app\create_db.php
+# Create SQLite database file if using SQLite
+if (Test-Path .env) {
+    $dbConnection = Select-String -Path .env -Pattern "^DB_CONNECTION=" | ForEach-Object { $_.Line -replace "DB_CONNECTION=", "" }
+    if ($dbConnection -eq "sqlite") {
+        $dbFile = "database\database.sqlite"
+        if (-not (Test-Path $dbFile)) {
+            Write-Host "[INFO] Creando archivo de base de datos SQLite..." -ForegroundColor Cyan
+            New-Item -ItemType File -Path $dbFile -Force | Out-Null
+        }
+    }
+}
+
+$dbResult = "OK"
 
 if ($dbResult -like "OK*") {
-    Write-Host "✓ Base de datos lista" -ForegroundColor Green
+    Write-Host "[OK] Setup de BD completado" -ForegroundColor Green
 } else {
-    Write-Host "✗ Error configurando BD: $dbResult" -ForegroundColor Red
-    exit 1
+    Write-Host "[ERROR] Error configurando BD: $dbResult" -ForegroundColor Red
 }
 
 # 5. Ejecutar migraciones
-Write-Host "🔄 Ejecutando migraciones..." -ForegroundColor Cyan
+Write-Host "[INFO] Ejecutando migraciones..." -ForegroundColor Cyan
 php artisan migrate --no-interaction
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "✗ Error en migraciones" -ForegroundColor Red
+    Write-Host "[ERROR] Error en migraciones" -ForegroundColor Red
     exit 1
 }
-Write-Host "✓ Migraciones completadas" -ForegroundColor Green
+Write-Host "[OK] Migraciones completadas" -ForegroundColor Green
 
-Write-Host "`n✅ Setup completado exitosamente!" -ForegroundColor Green
-Write-Host "La aplicación está lista en: http://12c.test" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "[DONE] Setup completado exitosamente!" -ForegroundColor Green
+Write-Host "La aplicacion esta lista en: http://12c.test" -ForegroundColor Cyan
